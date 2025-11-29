@@ -1,0 +1,103 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Environment variables - CRITICAL SECURITY
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+.env.test
+*.env
+!.env.example
+
+# API Keys and Secrets
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+secrets.json
+secrets.yaml
+secrets.yml
+credentials.json
+credentials.yaml
+credentials.yml
+service-account*.json
+*-credentials.json
+api-keys.json
+api-keys.txt
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+*.db3
+*.mdb
+*.accdb
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.Spotlight-V100
+.Trashes
+
+# IDE and tool configs that may contain secrets
+.env.local.backup
+*.bak
+*.backup
+
+# Build and cache
+.cache
+.parcel-cache
+.turbo
+.vercel
+.netlify
+.output
+*.tsbuildinfo
+
+# Test coverage
+coverage
+.nyc_output
+
+# Temporary files
+tmp
+temp
+*.tmp
+*.temp
+
+# Package manager locks (optional - uncomment if desired)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
