@@ -124,6 +124,7 @@ export interface PostSummary {
   updatedAt: string;
   thumbnailPath: string | null;
   tags: string[];
+  ideaId?: string;
 }
 
 export interface PostIndex {

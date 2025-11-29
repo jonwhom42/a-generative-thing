@@ -371,6 +371,7 @@ class StorageService {
       updatedAt: post.updatedAt,
       thumbnailPath: post.variants.A.imagePath,
       tags: post.tags,
+      ideaId: post.ideaId,
     };
 
     const existingIndex = index.posts.findIndex((p) => p.id === post.id);

@@ -600,6 +600,7 @@ const PostGenerator = () => {
           imageAspectRatio: post.imageAspectRatio,
           imageResolution: post.imageResolution,
           tags: [],
+          ideaId: ideaIdFromUrl || undefined,
         };
 
         // Collect images to save - use the paths defined in storedPost (without doubling)

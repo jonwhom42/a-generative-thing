@@ -24,6 +24,7 @@ import { MdDelete, MdAdd, MdAutoAwesome } from 'react-icons/md';
 import { ProjectsDashboard } from '../components/ProjectsDashboard';
 import { useStorage } from '../context/StorageContext';
 import type { Project, Idea, ProjectStage, IdeaStage } from '../domain/model';
+import type { PostSummary } from '../types/storage';
 
 const emptyNewProject = {
   name: '',
@@ -54,6 +55,7 @@ const Dashboard = () => {
     listIdeas,
     saveIdea,
     deleteIdea,
+    listPosts,
   } = useStorage();
 
   const isConnected = status === 'connected';
@@ -61,6 +63,7 @@ const Dashboard = () => {
   // Data state
   const [projects, setProjects] = useState<Project[]>([]);
   const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [posts, setPosts] = useState<PostSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Selection state
@@ -85,6 +88,15 @@ const Dashboard = () => {
     ? ideas.filter((idea) => idea.projectId === selectedProject.id)
     : [];
 
+  // Group posts by ideaId
+  const postsByIdeaId = new Map<string, PostSummary[]>();
+  for (const post of posts) {
+    if (!post.ideaId) continue;
+    const arr = postsByIdeaId.get(post.ideaId) || [];
+    arr.push(post);
+    postsByIdeaId.set(post.ideaId, arr);
+  }
+
   // Load data from storage
   const loadData = useCallback(async () => {
     if (!isConnected) {
@@ -94,18 +106,20 @@ const Dashboard = () => {
 
     setLoading(true);
     try {
-      const [loadedProjects, loadedIdeas] = await Promise.all([
+      const [loadedProjects, loadedIdeas, loadedPosts] = await Promise.all([
         listWorkspaceProjects(),
         listIdeas(),
+        listPosts(),
       ]);
       setProjects(loadedProjects);
       setIdeas(loadedIdeas);
+      setPosts(loadedPosts);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
     }
-  }, [isConnected, listWorkspaceProjects, listIdeas]);
+  }, [isConnected, listWorkspaceProjects, listIdeas, listPosts]);
 
   useEffect(() => {
     loadData();
@@ -327,6 +341,33 @@ const Dashboard = () => {
                         <Chip key={tag} label={tag} size="small" sx={{ fontSize: 10 }} />
                       ))}
                     </Box>
+                    {(() => {
+                      const relatedPosts = postsByIdeaId.get(idea.id) || [];
+                      if (relatedPosts.length === 0) return null;
+                      return (
+                        <Box sx={{ mt: 1 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Posts from this idea:
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
+                            {relatedPosts.slice(0, 3).map((post) => (
+                              <Typography
+                                key={post.id}
+                                variant="caption"
+                                sx={{ display: 'block' }}
+                              >
+                                • [{post.platform}] {post.idea.slice(0, 40)}{post.idea.length > 40 ? '...' : ''}
+                              </Typography>
+                            ))}
+                            {relatedPosts.length > 3 && (
+                              <Typography variant="caption" color="text.secondary">
+                                + {relatedPosts.length - 3} more…
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      );
+                    })()}
                     <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
                       <Button
                         size="small"
