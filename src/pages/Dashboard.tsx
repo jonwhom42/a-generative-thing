@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -19,7 +20,7 @@ import {
   IconButton,
   Chip,
 } from '@mui/material';
-import { MdDelete, MdAdd } from 'react-icons/md';
+import { MdDelete, MdAdd, MdAutoAwesome } from 'react-icons/md';
 import { ProjectsDashboard } from '../components/ProjectsDashboard';
 import { useStorage } from '../context/StorageContext';
 import type { Project, Idea, ProjectStage, IdeaStage } from '../domain/model';
@@ -44,6 +45,7 @@ const emptyNewIdea = {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const {
     status,
     listWorkspaceProjects,
@@ -324,6 +326,22 @@ const Dashboard = () => {
                       {idea.tags.map((tag) => (
                         <Chip key={tag} label={tag} size="small" sx={{ fontSize: 10 }} />
                       ))}
+                    </Box>
+                    <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button
+                        size="small"
+                        startIcon={<MdAutoAwesome />}
+                        onClick={() => {
+                          const params = new URLSearchParams({
+                            ideaId: idea.id,
+                            ideaTitle: idea.title,
+                            ideaSummary: idea.summary ?? '',
+                          });
+                          navigate(`/tools/post-generator?${params.toString()}`);
+                        }}
+                      >
+                        Generate Content
+                      </Button>
                     </Box>
                   </Box>
                 ))}

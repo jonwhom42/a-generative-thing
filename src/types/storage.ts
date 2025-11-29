@@ -61,6 +61,9 @@ export interface StoredPost {
 
   // Organization
   tags: string[];
+
+  // Link to workspace Idea (optional)
+  ideaId?: string;
 }
 
 // ============================================

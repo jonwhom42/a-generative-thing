@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Box, Typography, Alert, Snackbar } from '@mui/material';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { Box, Typography, Alert, Snackbar, Chip } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import GeneratorControls from './GeneratorControls';
 import PlatformCard from './PlatformCard';
@@ -36,7 +36,26 @@ const PostGenerator = () => {
   const { status, savePost, getPost, loadImage, loadVideo } = useStorage();
   const isStorageConnected = status === 'connected';
 
-  const [state, setState] = useState<GeneratorState>(DEFAULT_GENERATOR_STATE);
+  // Extract idea context from URL params
+  const ideaIdFromUrl = searchParams.get('ideaId');
+  const ideaTitleFromUrl = searchParams.get('ideaTitle');
+  const ideaSummaryFromUrl = searchParams.get('ideaSummary');
+
+  // Build initial state with idea context if present
+  const initialState = useMemo(() => {
+    if (ideaTitleFromUrl || ideaSummaryFromUrl) {
+      const ideaPrompt = ideaSummaryFromUrl
+        ? `${ideaTitleFromUrl || ''}\n\n${ideaSummaryFromUrl}`
+        : ideaTitleFromUrl || '';
+      return {
+        ...DEFAULT_GENERATOR_STATE,
+        idea: ideaPrompt.trim(),
+      };
+    }
+    return DEFAULT_GENERATOR_STATE;
+  }, [ideaTitleFromUrl, ideaSummaryFromUrl]);
+
+  const [state, setState] = useState<GeneratorState>(initialState);
   const [saveStates, setSaveStates] = useState<SaveState>({});
   const [toast, setToast] = useState<{
     open: boolean;
@@ -645,10 +664,20 @@ const PostGenerator = () => {
       <Typography variant="h4" gutterBottom>
         Post Generator
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
         Generate AI-powered social media content with A/B variants for multiple
         platforms.
       </Typography>
+
+      {ideaIdFromUrl && (
+        <Chip
+          label={`From Idea: ${ideaTitleFromUrl || ideaIdFromUrl}`}
+          size="small"
+          color="primary"
+          variant="outlined"
+          sx={{ mb: 2 }}
+        />
+      )}
 
       <GeneratorControls
         state={state}
