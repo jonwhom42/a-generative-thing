@@ -11,8 +11,10 @@ import type {
   StorageStats,
   PostFilter,
   ProjectFilter,
+  WorkspaceIndex,
 } from '../../types/storage';
 import { DEFAULT_APP_SETTINGS } from '../../types/storage';
+import type { Project, Idea, Experiment } from '../../domain/model';
 import {
   saveDirectoryHandle,
   getDirectoryHandle,
@@ -134,7 +136,7 @@ class StorageService {
   private async ensureFolderStructure(): Promise<void> {
     if (!this.rootHandle) return;
 
-    const folders = ['posts', 'projects', 'settings', 'exports'];
+    const folders = ['posts', 'projects', 'workspace', 'settings', 'exports'];
     for (const folder of folders) {
       await this.rootHandle.getDirectoryHandle(folder, { create: true });
     }
@@ -511,6 +513,163 @@ class StorageService {
     index.projects = index.projects.filter((p) => p.id !== id);
     index.lastUpdated = new Date().toISOString();
     await this.writeFile('projects/index.json', JSON.stringify(index, null, 2));
+  }
+
+  // ============================================
+  // Workspace CRUD (Projects, Ideas, Experiments from domain model)
+  // ============================================
+
+  private async getWorkspaceIndex(): Promise<WorkspaceIndex> {
+    const content = await this.readFile('workspace/index.json');
+    if (!content) {
+      return {
+        version: 1,
+        lastUpdated: new Date().toISOString(),
+        projects: [],
+        ideas: [],
+        experiments: [],
+        members: [],
+      };
+    }
+
+    try {
+      return JSON.parse(content) as WorkspaceIndex;
+    } catch {
+      return {
+        version: 1,
+        lastUpdated: new Date().toISOString(),
+        projects: [],
+        ideas: [],
+        experiments: [],
+        members: [],
+      };
+    }
+  }
+
+  private async saveWorkspaceIndex(index: WorkspaceIndex): Promise<void> {
+    index.lastUpdated = new Date().toISOString();
+    await this.writeFile('workspace/index.json', JSON.stringify(index, null, 2));
+  }
+
+  // Workspace Projects
+  async saveWorkspaceProject(project: Project): Promise<void> {
+    if (!this.rootHandle) throw new Error('Storage not initialized');
+
+    const index = await this.getWorkspaceIndex();
+    const existingIdx = index.projects.findIndex((p) => p.id === project.id);
+
+    if (existingIdx >= 0) {
+      index.projects[existingIdx] = project;
+    } else {
+      index.projects.push(project);
+    }
+
+    await this.saveWorkspaceIndex(index);
+  }
+
+  async getWorkspaceProject(id: string): Promise<Project | null> {
+    const index = await this.getWorkspaceIndex();
+    return index.projects.find((p) => p.id === id) || null;
+  }
+
+  async listWorkspaceProjects(): Promise<Project[]> {
+    const index = await this.getWorkspaceIndex();
+    return index.projects.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  }
+
+  async deleteWorkspaceProject(id: string): Promise<void> {
+    const index = await this.getWorkspaceIndex();
+    index.projects = index.projects.filter((p) => p.id !== id);
+    // Also delete related ideas
+    index.ideas = index.ideas.filter((i) => i.projectId !== id);
+    // And related experiments
+    const deletedIdeaIds = index.ideas.filter((i) => i.projectId === id).map((i) => i.id);
+    index.experiments = index.experiments.filter((e) => !deletedIdeaIds.includes(e.ideaId));
+    await this.saveWorkspaceIndex(index);
+  }
+
+  // Ideas
+  async saveIdea(idea: Idea): Promise<void> {
+    if (!this.rootHandle) throw new Error('Storage not initialized');
+
+    const index = await this.getWorkspaceIndex();
+    const existingIdx = index.ideas.findIndex((i) => i.id === idea.id);
+
+    if (existingIdx >= 0) {
+      index.ideas[existingIdx] = idea;
+    } else {
+      index.ideas.push(idea);
+    }
+
+    await this.saveWorkspaceIndex(index);
+  }
+
+  async getIdea(id: string): Promise<Idea | null> {
+    const index = await this.getWorkspaceIndex();
+    return index.ideas.find((i) => i.id === id) || null;
+  }
+
+  async listIdeas(projectId?: string): Promise<Idea[]> {
+    const index = await this.getWorkspaceIndex();
+    let ideas = index.ideas;
+
+    if (projectId) {
+      ideas = ideas.filter((i) => i.projectId === projectId);
+    }
+
+    return ideas.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  }
+
+  async deleteIdea(id: string): Promise<void> {
+    const index = await this.getWorkspaceIndex();
+    index.ideas = index.ideas.filter((i) => i.id !== id);
+    // Also delete related experiments
+    index.experiments = index.experiments.filter((e) => e.ideaId !== id);
+    await this.saveWorkspaceIndex(index);
+  }
+
+  // Experiments
+  async saveExperiment(experiment: Experiment): Promise<void> {
+    if (!this.rootHandle) throw new Error('Storage not initialized');
+
+    const index = await this.getWorkspaceIndex();
+    const existingIdx = index.experiments.findIndex((e) => e.id === experiment.id);
+
+    if (existingIdx >= 0) {
+      index.experiments[existingIdx] = experiment;
+    } else {
+      index.experiments.push(experiment);
+    }
+
+    await this.saveWorkspaceIndex(index);
+  }
+
+  async getExperiment(id: string): Promise<Experiment | null> {
+    const index = await this.getWorkspaceIndex();
+    return index.experiments.find((e) => e.id === id) || null;
+  }
+
+  async listExperiments(ideaId?: string): Promise<Experiment[]> {
+    const index = await this.getWorkspaceIndex();
+    let experiments = index.experiments;
+
+    if (ideaId) {
+      experiments = experiments.filter((e) => e.ideaId === ideaId);
+    }
+
+    return experiments.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  }
+
+  async deleteExperiment(id: string): Promise<void> {
+    const index = await this.getWorkspaceIndex();
+    index.experiments = index.experiments.filter((e) => e.id !== id);
+    await this.saveWorkspaceIndex(index);
   }
 
   // ============================================

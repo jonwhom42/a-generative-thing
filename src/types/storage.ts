@@ -146,6 +146,27 @@ export interface ProjectIndex {
 }
 
 // ============================================
+// Workspace Types (from domain model)
+// ============================================
+
+// Re-export domain types for storage
+export type { Project, Idea, Experiment, Member, ProjectStage, IdeaStage, ExperimentStatus, MemberRole } from '../domain/model';
+
+export interface WorkspaceIndex {
+  version: number;
+  lastUpdated: string;
+  projects: import('../domain/model').Project[];
+  ideas: import('../domain/model').Idea[];
+  experiments: import('../domain/model').Experiment[];
+  members: import('../domain/model').Member[];
+}
+
+export interface WorkspaceFilter {
+  projectId?: string;
+  searchQuery?: string;
+}
+
+// ============================================
 // Settings Types
 // ============================================
 
@@ -235,17 +256,35 @@ export interface StorageContextValue extends StorageState {
   reconnect: () => Promise<boolean>;
   disconnect: () => void;
 
-  // Posts
+  // Posts (social media posts)
   savePost: (post: StoredPost, images: Map<string, string>) => Promise<void>;
   getPost: (id: string) => Promise<StoredPost | null>;
   listPosts: (filter?: PostFilter) => Promise<PostSummary[]>;
   deletePost: (id: string) => Promise<void>;
 
-  // Projects
+  // Projects (ImageEditor projects)
   saveProject: (project: StoredProject, files: Map<string, string>) => Promise<void>;
   getProject: (id: string) => Promise<StoredProject | null>;
   listProjects: (filter?: ProjectFilter) => Promise<ProjectSummary[]>;
   deleteProject: (id: string) => Promise<void>;
+
+  // Workspace Projects (domain model)
+  saveWorkspaceProject: (project: import('../domain/model').Project) => Promise<void>;
+  getWorkspaceProject: (id: string) => Promise<import('../domain/model').Project | null>;
+  listWorkspaceProjects: () => Promise<import('../domain/model').Project[]>;
+  deleteWorkspaceProject: (id: string) => Promise<void>;
+
+  // Ideas (domain model)
+  saveIdea: (idea: import('../domain/model').Idea) => Promise<void>;
+  getIdea: (id: string) => Promise<import('../domain/model').Idea | null>;
+  listIdeas: (projectId?: string) => Promise<import('../domain/model').Idea[]>;
+  deleteIdea: (id: string) => Promise<void>;
+
+  // Experiments (domain model)
+  saveExperiment: (experiment: import('../domain/model').Experiment) => Promise<void>;
+  getExperiment: (id: string) => Promise<import('../domain/model').Experiment | null>;
+  listExperiments: (ideaId?: string) => Promise<import('../domain/model').Experiment[]>;
+  deleteExperiment: (id: string) => Promise<void>;
 
   // Settings
   saveSettings: (settings: AppSettings) => Promise<void>;

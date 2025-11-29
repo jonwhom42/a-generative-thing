@@ -15,6 +15,7 @@ import {
   isFileSystemAccessSupported,
   getBrowserInfo,
 } from '../types/storage';
+import type { Project, Idea, Experiment } from '../domain/model';
 import { storageService } from '../services/storage';
 
 const StorageContext = createContext<StorageContextValue | null>(null);
@@ -224,6 +225,99 @@ export const StorageProvider = ({ children }: StorageProviderProps) => {
     await refreshStats();
   }, []);
 
+  // Workspace Projects (domain model)
+  const saveWorkspaceProject = useCallback(
+    async (project: Project): Promise<void> => {
+      if (!storageService.isInitialized()) {
+        throw new Error('Storage not connected');
+      }
+      await storageService.saveWorkspaceProject(project);
+    },
+    []
+  );
+
+  const getWorkspaceProject = useCallback(
+    async (id: string): Promise<Project | null> => {
+      if (!storageService.isInitialized()) return null;
+      return storageService.getWorkspaceProject(id);
+    },
+    []
+  );
+
+  const listWorkspaceProjects = useCallback(async (): Promise<Project[]> => {
+    if (!storageService.isInitialized()) return [];
+    return storageService.listWorkspaceProjects();
+  }, []);
+
+  const deleteWorkspaceProject = useCallback(async (id: string): Promise<void> => {
+    if (!storageService.isInitialized()) return;
+    await storageService.deleteWorkspaceProject(id);
+  }, []);
+
+  // Ideas (domain model)
+  const saveIdea = useCallback(
+    async (idea: Idea): Promise<void> => {
+      if (!storageService.isInitialized()) {
+        throw new Error('Storage not connected');
+      }
+      await storageService.saveIdea(idea);
+    },
+    []
+  );
+
+  const getIdea = useCallback(
+    async (id: string): Promise<Idea | null> => {
+      if (!storageService.isInitialized()) return null;
+      return storageService.getIdea(id);
+    },
+    []
+  );
+
+  const listIdeas = useCallback(
+    async (projectId?: string): Promise<Idea[]> => {
+      if (!storageService.isInitialized()) return [];
+      return storageService.listIdeas(projectId);
+    },
+    []
+  );
+
+  const deleteIdea = useCallback(async (id: string): Promise<void> => {
+    if (!storageService.isInitialized()) return;
+    await storageService.deleteIdea(id);
+  }, []);
+
+  // Experiments (domain model)
+  const saveExperiment = useCallback(
+    async (experiment: Experiment): Promise<void> => {
+      if (!storageService.isInitialized()) {
+        throw new Error('Storage not connected');
+      }
+      await storageService.saveExperiment(experiment);
+    },
+    []
+  );
+
+  const getExperiment = useCallback(
+    async (id: string): Promise<Experiment | null> => {
+      if (!storageService.isInitialized()) return null;
+      return storageService.getExperiment(id);
+    },
+    []
+  );
+
+  const listExperiments = useCallback(
+    async (ideaId?: string): Promise<Experiment[]> => {
+      if (!storageService.isInitialized()) return [];
+      return storageService.listExperiments(ideaId);
+    },
+    []
+  );
+
+  const deleteExperiment = useCallback(async (id: string): Promise<void> => {
+    if (!storageService.isInitialized()) return;
+    await storageService.deleteExperiment(id);
+  }, []);
+
   // Settings
   const saveSettings = useCallback(
     async (settings: AppSettings): Promise<void> => {
@@ -275,6 +369,18 @@ export const StorageProvider = ({ children }: StorageProviderProps) => {
     getProject,
     listProjects,
     deleteProject,
+    saveWorkspaceProject,
+    getWorkspaceProject,
+    listWorkspaceProjects,
+    deleteWorkspaceProject,
+    saveIdea,
+    getIdea,
+    listIdeas,
+    deleteIdea,
+    saveExperiment,
+    getExperiment,
+    listExperiments,
+    deleteExperiment,
     saveSettings,
     getSettings,
     loadImage,
