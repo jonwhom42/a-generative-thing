@@ -8,6 +8,7 @@ import {
   Typography,
 } from '@mui/material';
 import { MdMenu } from 'react-icons/md';
+import { UserButton } from '@clerk/clerk-react';
 import Sidebar, { DRAWER_WIDTH } from './Sidebar';
 
 const Layout = () => {
@@ -38,9 +39,20 @@ const Layout = () => {
           >
             <MdMenu size={24} />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            Branding App
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+            Generative Workspace
           </Typography>
+          <UserButton
+            afterSignOutUrl="/sign-in"
+            appearance={{
+              elements: {
+                avatarBox: {
+                  width: 36,
+                  height: 36,
+                },
+              },
+            }}
+          />
         </Toolbar>
       </AppBar>
       <Sidebar open={sidebarOpen} />

@@ -20,10 +20,10 @@ import {
   IconButton,
   Chip,
 } from '@mui/material';
-import { MdDelete, MdAdd, MdAutoAwesome } from 'react-icons/md';
+import { MdDelete, MdAdd, MdAutoAwesome, MdScience } from 'react-icons/md';
 import { ProjectsDashboard } from '../components/ProjectsDashboard';
 import { useStorage } from '../context/StorageContext';
-import type { Project, Idea, ProjectStage, IdeaStage } from '../domain/model';
+import type { Project, Idea, Experiment, ProjectStage, IdeaStage, ExperimentStatus } from '../domain/model';
 import type { PostSummary } from '../types/storage';
 
 const emptyNewProject = {
@@ -45,6 +45,16 @@ const emptyNewIdea = {
   differentiation: '',
 };
 
+const emptyNewExperiment = {
+  name: '',
+  hypothesis: '',
+  method: '',
+  channel: '',
+  metricName: '',
+  targetValue: '',
+  status: 'planned' as ExperimentStatus,
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const {
@@ -56,6 +66,9 @@ const Dashboard = () => {
     saveIdea,
     deleteIdea,
     listPosts,
+    listExperiments,
+    saveExperiment,
+    deleteExperiment,
   } = useStorage();
 
   const isConnected = status === 'connected';
@@ -64,6 +77,7 @@ const Dashboard = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [posts, setPosts] = useState<PostSummary[]>([]);
+  const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Selection state
@@ -72,12 +86,15 @@ const Dashboard = () => {
   // Dialog state
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
   const [showNewIdeaDialog, setShowNewIdeaDialog] = useState(false);
+  const [showNewExperimentDialog, setShowNewExperimentDialog] = useState(false);
+  const [experimentDialogIdeaId, setExperimentDialogIdeaId] = useState<string | null>(null);
   const [newProject, setNewProject] = useState(emptyNewProject);
   const [newIdea, setNewIdea] = useState(emptyNewIdea);
+  const [newExperiment, setNewExperiment] = useState(emptyNewExperiment);
 
   // Delete confirmation state
   const [deleteDialog, setDeleteDialog] = useState<{
-    type: 'project' | 'idea';
+    type: 'project' | 'idea' | 'experiment';
     id: string;
     name: string;
   } | null>(null);
@@ -97,6 +114,14 @@ const Dashboard = () => {
     postsByIdeaId.set(post.ideaId, arr);
   }
 
+  // Group experiments by ideaId
+  const experimentsByIdeaId = new Map<string, Experiment[]>();
+  for (const exp of experiments) {
+    const arr = experimentsByIdeaId.get(exp.ideaId) || [];
+    arr.push(exp);
+    experimentsByIdeaId.set(exp.ideaId, arr);
+  }
+
   // Load data from storage
   const loadData = useCallback(async () => {
     if (!isConnected) {
@@ -106,20 +131,22 @@ const Dashboard = () => {
 
     setLoading(true);
     try {
-      const [loadedProjects, loadedIdeas, loadedPosts] = await Promise.all([
+      const [loadedProjects, loadedIdeas, loadedPosts, loadedExperiments] = await Promise.all([
         listWorkspaceProjects(),
         listIdeas(),
         listPosts(),
+        listExperiments(),
       ]);
       setProjects(loadedProjects);
       setIdeas(loadedIdeas);
       setPosts(loadedPosts);
+      setExperiments(loadedExperiments);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
     }
-  }, [isConnected, listWorkspaceProjects, listIdeas, listPosts]);
+  }, [isConnected, listWorkspaceProjects, listIdeas, listPosts, listExperiments]);
 
   useEffect(() => {
     loadData();
@@ -183,6 +210,36 @@ const Dashboard = () => {
     }
   };
 
+  // Create experiment
+  const handleCreateExperiment = async () => {
+    if (!newExperiment.name.trim() || !newExperiment.hypothesis.trim() || !experimentDialogIdeaId || !isConnected) return;
+
+    const experiment: Experiment = {
+      id: `exp-${Date.now()}`,
+      ideaId: experimentDialogIdeaId,
+      ownerId: 'member-001',
+      name: newExperiment.name.trim(),
+      status: newExperiment.status,
+      hypothesis: newExperiment.hypothesis.trim(),
+      method: newExperiment.method.trim(),
+      channel: newExperiment.channel.trim(),
+      metricName: newExperiment.metricName.trim(),
+      targetValue: newExperiment.targetValue ? parseFloat(newExperiment.targetValue) : 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      await saveExperiment(experiment);
+      setExperiments(prev => [experiment, ...prev]);
+      setShowNewExperimentDialog(false);
+      setNewExperiment(emptyNewExperiment);
+      setExperimentDialogIdeaId(null);
+    } catch (error) {
+      console.error('Failed to save experiment:', error);
+    }
+  };
+
   // Delete handlers
   const handleDeleteConfirm = async () => {
     if (!deleteDialog || !isConnected) return;
@@ -192,12 +249,20 @@ const Dashboard = () => {
         await deleteWorkspaceProject(deleteDialog.id);
         setProjects(prev => prev.filter(p => p.id !== deleteDialog.id));
         setIdeas(prev => prev.filter(i => i.projectId !== deleteDialog.id));
+        setExperiments(prev => prev.filter(e => {
+          const idea = ideas.find(i => i.id === e.ideaId);
+          return idea?.projectId !== deleteDialog.id;
+        }));
         if (selectedProjectId === deleteDialog.id) {
           setSelectedProjectId(null);
         }
-      } else {
+      } else if (deleteDialog.type === 'idea') {
         await deleteIdea(deleteDialog.id);
         setIdeas(prev => prev.filter(i => i.id !== deleteDialog.id));
+        setExperiments(prev => prev.filter(e => e.ideaId !== deleteDialog.id));
+      } else if (deleteDialog.type === 'experiment') {
+        await deleteExperiment(deleteDialog.id);
+        setExperiments(prev => prev.filter(e => e.id !== deleteDialog.id));
       }
     } catch (error) {
       console.error('Failed to delete:', error);
@@ -214,6 +279,17 @@ const Dashboard = () => {
   const handleCloseIdeaDialog = () => {
     setShowNewIdeaDialog(false);
     setNewIdea(emptyNewIdea);
+  };
+
+  const handleOpenExperimentDialog = (ideaId: string) => {
+    setExperimentDialogIdeaId(ideaId);
+    setShowNewExperimentDialog(true);
+  };
+
+  const handleCloseExperimentDialog = () => {
+    setShowNewExperimentDialog(false);
+    setNewExperiment(emptyNewExperiment);
+    setExperimentDialogIdeaId(null);
   };
 
   // Show storage connection prompt if not connected
@@ -368,6 +444,98 @@ const Dashboard = () => {
                         </Box>
                       );
                     })()}
+
+                    {/* Experiments Section */}
+                    <Box sx={{ mt: 1.5, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                          Experiments
+                        </Typography>
+                        <Button
+                          size="small"
+                          startIcon={<MdScience size={14} />}
+                          onClick={() => handleOpenExperimentDialog(idea.id)}
+                          sx={{ fontSize: 11, py: 0 }}
+                        >
+                          Add
+                        </Button>
+                      </Box>
+                      {(() => {
+                        const ideaExperiments = experimentsByIdeaId.get(idea.id) || [];
+                        if (ideaExperiments.length === 0) {
+                          return (
+                            <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>
+                              No experiments yet for this idea.
+                            </Typography>
+                          );
+                        }
+                        return (
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                            {ideaExperiments.map((exp) => (
+                              <Box
+                                key={exp.id}
+                                sx={{
+                                  p: 0.75,
+                                  borderRadius: 0.5,
+                                  backgroundColor: 'action.hover',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'flex-start',
+                                }}
+                              >
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25 }}>
+                                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                                      {exp.name}
+                                    </Typography>
+                                    <Chip
+                                      label={exp.status}
+                                      size="small"
+                                      color={
+                                        exp.status === 'completed' ? 'success' :
+                                        exp.status === 'running' ? 'info' :
+                                        exp.status === 'cancelled' ? 'warning' : 'default'
+                                      }
+                                      sx={{ fontSize: 9, height: 16 }}
+                                    />
+                                  </Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{
+                                      display: 'block',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {exp.hypothesis}
+                                  </Typography>
+                                  {exp.metricName && (
+                                    <Typography variant="caption" color="text.disabled" sx={{ display: 'block', fontSize: 10 }}>
+                                      Metric: {exp.metricName} (target: {exp.targetValue})
+                                    </Typography>
+                                  )}
+                                </Box>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => setDeleteDialog({
+                                    type: 'experiment',
+                                    id: exp.id,
+                                    name: exp.name,
+                                  })}
+                                  sx={{ ml: 0.5, p: 0.25 }}
+                                >
+                                  <MdDelete size={14} />
+                                </IconButton>
+                              </Box>
+                            ))}
+                          </Box>
+                        );
+                      })()}
+                    </Box>
+
                     <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
                       <Button
                         size="small"
@@ -562,6 +730,98 @@ const Dashboard = () => {
           <Button onClick={() => setDeleteDialog(null)}>Cancel</Button>
           <Button color="error" variant="contained" onClick={handleDeleteConfirm}>
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* New Experiment Dialog */}
+      <Dialog open={showNewExperimentDialog} onClose={handleCloseExperimentDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Add New Experiment</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Experiment Name"
+            fullWidth
+            variant="outlined"
+            value={newExperiment.name}
+            onChange={(e) => setNewExperiment(prev => ({ ...prev, name: e.target.value }))}
+            sx={{ mt: 1, mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="Hypothesis"
+            fullWidth
+            multiline
+            rows={3}
+            variant="outlined"
+            placeholder="If we... then... because..."
+            value={newExperiment.hypothesis}
+            onChange={(e) => setNewExperiment(prev => ({ ...prev, hypothesis: e.target.value }))}
+            sx={{ mb: 2 }}
+          />
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={newExperiment.status}
+              label="Status"
+              onChange={(e) => setNewExperiment(prev => ({ ...prev, status: e.target.value as ExperimentStatus }))}
+            >
+              <MenuItem value="planned">Planned</MenuItem>
+              <MenuItem value="running">Running</MenuItem>
+              <MenuItem value="completed">Completed</MenuItem>
+              <MenuItem value="cancelled">Cancelled</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField
+            margin="dense"
+            label="Method (optional)"
+            fullWidth
+            variant="outlined"
+            placeholder="How will you run this experiment?"
+            value={newExperiment.method}
+            onChange={(e) => setNewExperiment(prev => ({ ...prev, method: e.target.value }))}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="Channel (optional)"
+            fullWidth
+            variant="outlined"
+            placeholder="e.g., LinkedIn, Email, Landing Page"
+            value={newExperiment.channel}
+            onChange={(e) => setNewExperiment(prev => ({ ...prev, channel: e.target.value }))}
+            sx={{ mb: 2 }}
+          />
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              margin="dense"
+              label="Metric Name (optional)"
+              fullWidth
+              variant="outlined"
+              placeholder="e.g., Conversion Rate"
+              value={newExperiment.metricName}
+              onChange={(e) => setNewExperiment(prev => ({ ...prev, metricName: e.target.value }))}
+            />
+            <TextField
+              margin="dense"
+              label="Target Value"
+              type="number"
+              variant="outlined"
+              sx={{ width: 150 }}
+              value={newExperiment.targetValue}
+              onChange={(e) => setNewExperiment(prev => ({ ...prev, targetValue: e.target.value }))}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseExperimentDialog}>Cancel</Button>
+          <Button
+            onClick={handleCreateExperiment}
+            variant="contained"
+            disabled={!newExperiment.name.trim() || !newExperiment.hypothesis.trim()}
+          >
+            Add Experiment
           </Button>
         </DialogActions>
       </Dialog>
