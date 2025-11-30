@@ -64,6 +64,17 @@ const getAuthToken = async (): Promise<string> => {
 // API Helper
 // ============================================================================
 
+// Use environment variable for API URL in production, relative path in dev
+const getApiBaseUrl = (): string => {
+  // In production, VITE_API_URL should point to your backend (e.g., Railway)
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl) {
+    return `${apiUrl}/api/gemini`;
+  }
+  // In development, Vite proxies /api to localhost:4000
+  return '/api/gemini';
+};
+
 interface ApiError {
   error: string;
   message?: string;
@@ -72,7 +83,7 @@ interface ApiError {
 async function apiCall<T>(endpoint: string, body: Record<string, unknown>): Promise<T> {
   const token = await getAuthToken();
 
-  const response = await fetch(`/api/gemini${endpoint}`, {
+  const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
