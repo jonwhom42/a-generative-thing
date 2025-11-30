@@ -9,10 +9,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server:dev": "ts-node-dev --respawn --transpile-only --project server/tsconfig.json server/src/index.ts",
+    "server:dev": "tsx watch server/src/index.ts",
     "server:build": "tsc --project server/tsconfig.json",
     "server:start": "node dist/server/index.js",
-    "server:smoke": "ts-node --project server/tsconfig.json server/scripts/smoke-test.ts"
+    "server:smoke": "tsx server/scripts/smoke-test.ts"
   },
   "dependencies": {
     "@clerk/backend": "^2.24.0",
@@ -45,6 +45,7 @@
     "globals": "^16.5.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
+    "tsx": "^4.20.6",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4"

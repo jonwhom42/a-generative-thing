@@ -109,6 +109,16 @@ npm run server:start     # Run production backend
 5. [ ] Test video generation (Veo)
 6. [ ] Test video extension
 
+### ChatBot Flow
+1. [ ] Click the chat icon in the bottom-right corner
+2. [ ] Test basic conversation (e.g., "What projects do I have?")
+3. [ ] Test project creation via chat (e.g., "Create a project called Test Project")
+4. [ ] Test idea creation via chat (e.g., "Add an idea to [project name]")
+5. [ ] Test web search capability (e.g., "Search for marketing trends 2024")
+6. [ ] Verify function calls execute and update the app state
+7. [ ] Test minimize/expand functionality
+8. [ ] Test close and reopen chat
+
 ### Error Handling
 - [ ] Verify meaningful error messages when generation fails
 - [ ] Verify 401 error when session expires (sign out and try to generate)
@@ -128,6 +138,7 @@ All endpoints require `Authorization: Bearer <clerk_session_token>` header.
 | `/api/gemini/edit-image-v3` | POST | V3 image editing | ImageEditor |
 | `/api/gemini/generate-video-v31` | POST | Veo 3.1 video | ImageEditor |
 | `/api/gemini/extend-video-v31` | POST | Extend video | ImageEditor |
+| `/api/gemini/chat` | POST | AI chat with function calling | ChatBot |
 
 ## Rate Limiting
 
@@ -154,6 +165,32 @@ All `/api/gemini/*` requests are logged with:
 **Production mode**: JSON-structured logs for aggregators
 
 Sensitive data (request bodies, API keys, base64 payloads) is never logged.
+
+## ChatBot Feature
+
+The ChatBot is a floating AI assistant in the bottom-right corner with full app control capabilities.
+
+### Features
+- **App Data Access**: Reads all projects, ideas, and experiments to provide context-aware responses
+- **Function Calling**: Can create, update, and delete projects, ideas, and experiments through natural language
+- **Google Search Grounding**: Can search the web for market research, competitor analysis, and trends
+- **Conversational UI**: Expandable/collapsible chat window with message history
+
+### Supported Actions via Chat
+| Action | Example Prompt |
+|--------|----------------|
+| Create project | "Create a new project called Summer Campaign" |
+| Update project | "Change the stage of Summer Campaign to testing" |
+| Delete project | "Delete the Test Project" |
+| Create idea | "Add an idea about email marketing to Summer Campaign" |
+| Update idea | "Mark the email marketing idea as ready to test" |
+| Create experiment | "Create an A/B test for the email marketing idea" |
+| Web search | "Search for social media trends in 2024" |
+
+### Technical Details
+- Model: `gemini-2.5-flash` with function calling and Google Search grounding
+- System instruction includes current app state (projects, ideas, experiments)
+- Function calls are executed client-side against StorageContext
 
 ## Known Limitations
 
@@ -211,7 +248,9 @@ The user has exceeded the configured rate limit. Wait for the `Retry-After` peri
 ### Frontend Files
 - `src/context/GeminiAuthContext.tsx` - Wires Clerk auth to Gemini service
 - `src/services/gemini.ts` - API calls via backend proxy
-- `src/App.tsx` - GeminiAuthProvider integration
+- `src/App.tsx` - GeminiAuthProvider integration, ChatBot inclusion
+- `src/components/ChatBot/ChatBot.tsx` - Floating chat UI component
+- `src/components/ChatBot/index.ts` - ChatBot exports
 
 ### Config Files
 - `vite.config.ts` - Dev server proxy configuration

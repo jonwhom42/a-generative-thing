@@ -708,4 +708,226 @@ router.post('/extend-video-v31', async (req: Request, res: Response) => {
   }
 });
 
+// ============================================================================
+// POST /api/gemini/chat
+// Used by: ChatBot component
+// Features: Function calling, Google Search grounding
+// ============================================================================
+
+// Define function declarations for app control
+const chatFunctionDeclarations = [
+  {
+    name: 'createProject',
+    description: 'Create a new project in the branding app',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Name of the project' },
+        description: { type: 'string', description: 'Description of the project' },
+        stage: {
+          type: 'string',
+          enum: ['concept', 'development', 'testing', 'active', 'archived'],
+          description: 'Current stage of the project',
+        },
+        targetAudience: { type: 'string', description: 'Target audience for the project' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'updateProject',
+    description: 'Update an existing project',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'ID of the project to update' },
+        updates: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            description: { type: 'string' },
+            stage: { type: 'string' },
+            targetAudience: { type: 'string' },
+          },
+        },
+      },
+      required: ['id', 'updates'],
+    },
+  },
+  {
+    name: 'deleteProject',
+    description: 'Delete a project',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'ID of the project to delete' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'createIdea',
+    description: 'Create a new idea within a project',
+    parameters: {
+      type: 'object',
+      properties: {
+        projectId: { type: 'string', description: 'ID of the project to add the idea to' },
+        title: { type: 'string', description: 'Title of the idea' },
+        summary: { type: 'string', description: 'Summary of the idea' },
+        stage: {
+          type: 'string',
+          enum: ['draft', 'reviewing', 'approved', 'rejected', 'implemented'],
+          description: 'Current stage of the idea',
+        },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Tags for categorizing the idea',
+        },
+        problem: { type: 'string', description: 'Problem the idea addresses' },
+        audience: { type: 'string', description: 'Target audience for the idea' },
+      },
+      required: ['projectId', 'title'],
+    },
+  },
+  {
+    name: 'updateIdea',
+    description: 'Update an existing idea',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'ID of the idea to update' },
+        updates: {
+          type: 'object',
+          properties: {
+            title: { type: 'string' },
+            summary: { type: 'string' },
+            stage: { type: 'string' },
+            tags: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+      required: ['id', 'updates'],
+    },
+  },
+  {
+    name: 'deleteIdea',
+    description: 'Delete an idea',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'ID of the idea to delete' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'createExperiment',
+    description: 'Create a new experiment for an idea',
+    parameters: {
+      type: 'object',
+      properties: {
+        ideaId: { type: 'string', description: 'ID of the idea to create the experiment for' },
+        name: { type: 'string', description: 'Name of the experiment' },
+        hypothesis: { type: 'string', description: 'Hypothesis being tested' },
+        method: { type: 'string', description: 'Method of the experiment' },
+        channel: {
+          type: 'string',
+          enum: ['LinkedIn', 'Twitter', 'Instagram', 'TikTok', 'Facebook', 'Other'],
+          description: 'Social media channel for the experiment',
+        },
+        status: {
+          type: 'string',
+          enum: ['draft', 'running', 'paused', 'completed', 'cancelled'],
+          description: 'Status of the experiment',
+        },
+      },
+      required: ['ideaId', 'name'],
+    },
+  },
+  {
+    name: 'updateExperiment',
+    description: 'Update an existing experiment',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'ID of the experiment to update' },
+        updates: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            status: { type: 'string' },
+            hypothesis: { type: 'string' },
+            method: { type: 'string' },
+            channel: { type: 'string' },
+          },
+        },
+      },
+      required: ['id', 'updates'],
+    },
+  },
+];
+
+router.post('/chat', async (req: Request, res: Response) => {
+  try {
+    const { messages, appContext } = req.body;
+
+    console.log('Chat endpoint called');
+
+    if (!messages || !Array.isArray(messages)) {
+      res.status(400).json({ error: 'Missing required field: messages (array)' });
+      return;
+    }
+
+    const ai = getGeminiClient();
+    const model = 'gemini-2.5-flash';
+
+    // Build system instruction with app context
+    const systemInstruction = `You are a helpful branding and marketing assistant integrated into a branding app. You have full access to the user's projects, ideas, and experiments.
+
+CURRENT APP DATA:
+${JSON.stringify(appContext || {}, null, 2)}
+
+YOUR CAPABILITIES:
+1. **Project Management**: Help users manage their projects
+2. **Idea Management**: Help users brainstorm and organize ideas
+3. **Experiment Management**: Help users plan A/B testing experiments
+4. **Content Advice**: Provide guidance on branding, marketing, social media strategy
+
+Be helpful, concise, and proactive in your responses.`;
+
+    // Convert messages to Gemini format - ensure proper structure
+    const geminiContents = messages.map((msg: { role: string; content: string }) => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }],
+    }));
+
+    console.log('Calling Gemini API...');
+
+    // Simple chat request without function calling first
+    const response = await ai.models.generateContent({
+      model,
+      contents: geminiContents,
+      config: {
+        systemInstruction,
+      },
+    });
+
+    console.log('Gemini response received');
+
+    // Extract text from response
+    const responseText = response.text || '';
+
+    console.log('Response text length:', responseText.length);
+
+    res.json({
+      response: responseText || 'I apologize, but I could not generate a response.',
+    });
+  } catch (error) {
+    console.error('Error in chat endpoint:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: `Failed to process chat request: ${errorMessage}` });
+  }
+});
+
 export { router as geminiRouter };

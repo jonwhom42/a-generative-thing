@@ -10,6 +10,7 @@ import Settings from './pages/Settings';
 import PostGeneratorPage from './pages/tools/PostGeneratorPage';
 import ImageEditorPage from './pages/tools/ImageEditorPage';
 import { SignInPage, SignUpPage } from './pages/auth';
+import { ChatBot } from './components/ChatBot';
 
 function App() {
   return (
@@ -43,6 +44,8 @@ function App() {
                         <Route path="settings" element={<Settings />} />
                       </Route>
                     </Routes>
+                    {/* Floating ChatBot - available on all authenticated pages */}
+                    <ChatBot />
                   </StorageProvider>
                 </GeminiAuthProvider>
               </SignedIn>
