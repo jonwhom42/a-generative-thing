@@ -17,8 +17,8 @@
 
 import { Router, Request, Response } from 'express';
 import { GoogleGenAI, Type } from '@google/genai';
-import { requireAuth } from '../middleware/auth';
-import { rateLimitGemini } from '../middleware/rateLimit';
+import { requireAuth } from '../middleware/auth.js';
+import { rateLimitGemini } from '../middleware/rateLimit.js';
 
 const router = Router();
 

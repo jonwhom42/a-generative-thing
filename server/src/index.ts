@@ -9,8 +9,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { geminiRouter } from './routes/gemini';
-import { requestLogger, logStartup } from './middleware/logger';
+import { geminiRouter } from './routes/gemini.js';
+import { requestLogger, logStartup } from './middleware/logger.js';
 
 // Load environment variables from .env.local (for local dev)
 dotenv.config({ path: '.env.local' });
